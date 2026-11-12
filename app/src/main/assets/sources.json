@@ -1,0 +1,6 @@
+{
+  "signatureSource": "https://cloud.google.com/blog/topics/threat-intelligence/shutting-the-door-on-the-xcpe-botnet",
+  "signatureCount": 78,
+  "badboxIndicators": "https://www.humansecurity.com/learn/blog/satori-threat-intelligence-disruption-badbox-2-0/",
+  "note": "Library/class names are heuristic indicators only, not confirmed malware; no all-malware coverage."
+}

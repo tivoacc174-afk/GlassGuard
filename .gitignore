@@ -1,0 +1,12 @@
+tools/
+build/
+test-classes/
+signing/
+research/*.html
+build.log
+*.idsig
+__pycache__/
+*.pyc
+dist/*.apk
+dist/GlassGuard-device-report.json
+verification/

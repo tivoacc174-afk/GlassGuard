@@ -1,0 +1,34 @@
+GlassGuard 1.0.0 — device verification
+
+Target: 192.168.0.99:5555
+Device: SkyworthDigital UHD Google TV STB, Android 14 / API 34.
+Installed package: com.glassguard. adb install returned Success; pm path read back package location; am start -W returned Status: ok.
+
+Automated checks:
+- JVM scanner harness: PASS, 12 assertions.
+- Node UI suite: PASS, 10 tests.
+- Native/manifest static contract: PASS, 2 tests (static checks, not Android instrumentation).
+- APK signing: verified v1, v2, v3.
+
+Real-device checks:
+- Local WebView loaded, native bridge delivered real model/RAM and inventory.
+- D-pad moved focus to controls and scrolled into view.
+- RAM control opened Android 14 limitation dialog; its positive action opened the system AppsActivity.
+- Scan reached 142 / 142 packages evaluated. One APK (Google WebView) reported partial inspection; this is retained in report limitations.
+- One finding: com.oemservice, XCPE package indicator, high. Actual package file /system/priv-app/app_xcpe_preset/app_xcpe_preset.apk, UID 1000.
+- Actual APK SHA-256: 7316469fd5b9fa633d9474a14b72716b9ceb4bbf656725ab79409da608eda2be.
+- That hash does not match the 78 bundled published hashes. Finding is NOT a confirmed hash match.
+- Evidence expansion displayed the actual package, path, UID and SHA-256.
+- Report persisted across force-stop/relaunch.
+- JSON share sheet opened with actual complete report. Report text was read back from Android UI into GlassGuard-device-report.json; chooser was cancelled without sharing to another app.
+- Search found a harmless no-code/no-permission test fixture. GlassGuard confirmation and Android uninstall confirmation opened. UI uninstall removed fixture for active user 0; inactive user 10 retained its copy. ADB cleanup then removed only that test fixture for all users; both users read back no fixture.
+- com.oemservice remains enabled; no existing user/system applications were removed or disabled.
+- Captured log windows contained no FATAL EXCEPTION / uncaught Chromium error matches. This is not a guarantee of absence of all defects.
+
+Artifacts:
+APK: C:\Users\Azam\Projects\GlassGuard\dist\GlassGuard-1.0.0.apk
+APK SHA-256: 1062787c0a0c5160b79c3cdfebdbc5f9054f2f58b876ebb356a7dee7efc5681d
+Report: C:\Users\Azam\Projects\GlassGuard\dist\GlassGuard-device-report.json
+Screenshots/UI XML/log windows: C:\Users\Azam\Projects\GlassGuard\verification
+
+Limits: Indicator scanner, not comprehensive antivirus. No firmware eradication, no hidden-root guarantee, no network traffic inspection. Ordinary Android app cannot delete /system or kill other apps on Android 14+. Uninstall operates within the current Android user/profile. Firmware remediation requires a separate explicit, verified procedure.
