@@ -44,7 +44,7 @@ keydir=ROOT/'signing';keydir.mkdir(exist_ok=True);password=keydir/'password.txt'
 if not password.exists():password.write_text(secrets.token_urlsafe(32),encoding='utf-8')
 ENV['GG_KEYPASS']=password.read_text(encoding='utf-8').strip()
 if not key.exists():run([JDK/'keytool.exe','-genkeypair','-keystore',key,'-storepass:env','GG_KEYPASS','-keypass:env','GG_KEYPASS','-alias','glassguard','-keyalg','RSA','-keysize','3072','-validity','3650','-dname','CN=GlassGuard Local Build','-storetype','JKS'])
-out=ROOT/'dist/GlassGuard-1.1.0.apk';out.parent.mkdir(exist_ok=True)
+out=ROOT/'dist/GlassGuard-1.3.4.apk';out.parent.mkdir(exist_ok=True)
 run([JDK/'java.exe','-jar',BT/'lib/apksigner.jar','sign','--ks',key,'--ks-key-alias','glassguard','--ks-pass','env:GG_KEYPASS','--key-pass','env:GG_KEYPASS','--out',out,aligned])
 run([JDK/'java.exe','-jar',BT/'lib/apksigner.jar','verify','--verbose',out])
 run([BT/'aapt2.exe','dump','badging',out])

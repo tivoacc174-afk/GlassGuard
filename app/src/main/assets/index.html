@@ -58,6 +58,12 @@
   const str = value => value == null ? '' : String(value);
   const finite = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
   const bytes = value => finite(value) ? new Intl.NumberFormat('ms-MY', { maximumFractionDigits: 0 }).format(value / 1048576) + ' MB' : '—';
+  // Small APKs must not collapse to "0 MB"; switch to KB below one megabyte.
+  const sizeLabel = value => {
+    if (!finite(value) || value <= 0) return '';
+    if (value >= 1048576) return new Intl.NumberFormat('ms-MY', { maximumFractionDigits: 1 }).format(value / 1048576) + ' MB';
+    return new Intl.NumberFormat('ms-MY', { maximumFractionDigits: 0 }).format(Math.max(1, Math.round(value / 1024))) + ' KB';
+  };
   const hasBridge = method => Boolean(window.GlassGuard && typeof window.GlassGuard[method] === 'function');
   function showMessage(message) { $('message').textContent = str(message); $('message').hidden = !message; }
   function invoke(method, argument) {
@@ -125,7 +131,7 @@
     const status = ['idle', 'checking', 'available', 'current', 'error'].includes(update.status) ? update.status : 'idle';
     const latest = str(update.latest);
     const detail = str(update.detail);
-    const size = finite(update.size) && update.size > 0 ? bytes(update.size) : '';
+    const size = finite(update.size) && update.size > 0 ? sizeLabel(update.size) : '';
     let message;
     if (status === 'checking') message = 'Menyemak kemas kini di GitHub…';
     else if (status === 'available') message = 'Versi ' + (latest || 'baharu') + ' tersedia' + (size ? ' (' + size + ')' : '') + '. Muat turun hanya apabila anda menekan butang di bawah.';

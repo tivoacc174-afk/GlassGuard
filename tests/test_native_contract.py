@@ -40,7 +40,17 @@ class NativeContract(unittest.TestCase):
   self.assertIn('Updater.verify',s)
   self.assertIn('confirmInstall',s)
   self.assertIn('STATUS_PENDING_USER_ACTION',s)
-  self.assertIn('FLAG_IMMUTABLE',s)
+  # PackageInstaller writes the outcome into the result Intent, so Android 12+ needs MUTABLE.
+  self.assertIn('FLAG_MUTABLE',s)
+  self.assertNotRegex(s,r'FLAG_IMMUTABLE:0\)')
+  # A failed or cancelled install must never leave the UI stuck in the checking state.
+  self.assertRegex(s,r'else\{\s*\n\s*// Never leave the UI in \\?"checking\\?"')
+  self.assertIn('setUpdating("error"',s)
+  # Android 8+ requires the user to grant install-unknown-apps for this package.
+  self.assertIn('canRequestPackageInstalls',s)
+  self.assertIn('ACTION_MANAGE_UNKNOWN_APP_SOURCES',s)
+  # Cancelling the confirm dialog returns to the available state rather than checking.
+  self.assertRegex(s,r'\.setNegativeButton\("Batal",\(d,w\)->\{\s*\n\s*apk\.delete\(\);\s*\n\s*try\{setUpdating\("available"')
  def test_manifest_permissions_are_limited_and_declared(self):
   p=ROOT/'app/src/main/AndroidManifest.xml'
   self.assertTrue(p.exists(),'Android manifest is missing')
@@ -48,6 +58,9 @@ class NativeContract(unittest.TestCase):
   perms={e.attrib[ns+'name'] for e in root.findall('uses-permission')}
   self.assertEqual(perms,{'android.permission.QUERY_ALL_PACKAGES','android.permission.KILL_BACKGROUND_PROCESSES','android.permission.REQUEST_DELETE_PACKAGES','android.permission.INTERNET','android.permission.REQUEST_INSTALL_PACKAGES'})
   self.assertEqual(root.find('application').attrib[ns+'allowBackup'],'false')
-  self.assertEqual(root.attrib[ns+'versionCode'],'2')
-  self.assertEqual(root.attrib[ns+'versionName'],'1.1.0')
+  # versionName and versionCode must stay in the same monotonic scheme the updater compares.
+  name=root.attrib[ns+'versionName'];code=int(root.attrib[ns+'versionCode'])
+  major,minor,patch=(int(x) for x in name.split('.'))
+  self.assertEqual(code,major*10000+minor*100+patch,'versionCode must match versionName')
+  self.assertGreaterEqual(code,2,'updater needs a code above the original 1.0.0')
 if __name__=='__main__':unittest.main()

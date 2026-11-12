@@ -10,3 +10,4 @@ __pycache__/
 dist/*.apk
 dist/GlassGuard-device-report.json
 verification/
+cache-1.1.0.apk

@@ -209,6 +209,7 @@ public final class MainActivity extends Activity {
  private void installUpdate(){
   JSONObject release=pendingRelease;
   if(release==null){note("Tiada keluaran yang disahkan. Tekan Check for update dahulu.");return;}
+  if(Build.VERSION.SDK_INT>=26&&!getPackageManager().canRequestPackageInstalls()){askInstallPermission();return;}
   if(!updating.compareAndSet(false,true)){note("Muat turun sedang berjalan.");return;}
   final String url=release.optString("url","");
   final long announced=release.optLong("versionCode",-1);
@@ -237,14 +238,33 @@ public final class MainActivity extends Activity {
  private void setUpdatingAsync(String status,String detail){
   runOnUiThread(()->{try{setUpdating(status,detail);}catch(Exception ignored){}});
  }
+ private void askInstallPermission(){
+  new AlertDialog.Builder(this).setTitle("Benarkan pemasangan kemas kini?")
+   .setMessage("Android memerlukan kebenaran \"pasang aplikasi tidak diketahui\" daripada GlassGuard sebelum ia boleh memasang kemas kini yang anda muat turun. Tetapan itu akan dibuka sekarang; kembali selepas membenarkannya, kemudian tekan Muat turun & pasang semula.")
+   .setNegativeButton("Batal",null)
+   .setPositiveButton("Buka tetapan",(d,w)->{
+    try{
+     if(Build.VERSION.SDK_INT>=26)startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName())));
+     else startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
+    }catch(Exception e){note("Buka Tetapan > Aplikasi > GlassGuard > Pasang aplikasi tidak diketahui secara manual.");}
+   }).show();
+ }
  private void confirmInstall(final File apk,final long announced){
   new AlertDialog.Builder(this).setTitle("Pasang kemas kini?")
    .setMessage("APK "+apk.length()+" bait telah disemak: pakej dan tandatangan sepadan. Android akan meminta pengesahan akhir. Data aplikasi kekal.")
-   .setNegativeButton("Batal",(d,w)->apk.delete())
+   .setNegativeButton("Batal",(d,w)->{
+    apk.delete();
+    try{setUpdating("available",null);}catch(Exception ignored){}
+   })
    .setPositiveButton("Pasang",(d,w)->{
     try{
      Intent result=new Intent(INSTALL_ACTION).setPackage(getPackageName());
-     int flags=PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_IMMUTABLE:0);
+     // PackageInstaller fills the result Intent with EXTRA_STATUS, so the PendingIntent must be
+     // MUTABLE on Android 12+. With FLAG_IMMUTABLE the system cannot attach the outcome and every
+     // install silently reports FAILURE with no message.
+     int flags=PendingIntent.FLAG_UPDATE_CURRENT;
+     if(Build.VERSION.SDK_INT>=31)flags|=PendingIntent.FLAG_MUTABLE;
+     else if(Build.VERSION.SDK_INT>=23)flags|=PendingIntent.FLAG_IMMUTABLE;
      PendingIntent pending=PendingIntent.getBroadcast(this,1,result,flags);
      Updater.install(this,apk,pending);
     }catch(Exception e){apk.delete();note("Pemasangan tidak dapat dimulakan: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));}
@@ -261,8 +281,17 @@ public final class MainActivity extends Activity {
    return;
   }
   new File(getCacheDir(),"update.apk").delete();
-  if(status==PackageInstaller.STATUS_SUCCESS){pendingRelease=null;note("Kemas kini dipasang. Buka semula GlassGuard untuk versi baharu.");}
-  else{pendingRelease=null;note("Pemasangan tidak selesai"+(detail==null?".":": "+detail));}
+  pendingRelease=null;
+  try{
+   if(status==PackageInstaller.STATUS_SUCCESS){
+    setUpdating("current",null);
+    note("Kemas kini dipasang. Buka semula GlassGuard untuk versi baharu.");
+   }else{
+    // Never leave the UI in "checking": that state disables the check button for good.
+    setUpdating("error",detail==null||detail.isEmpty()?"Pemasangan tidak dibenarkan atau dibatalkan oleh Android.":detail);
+    note("Pemasangan tidak selesai"+(detail==null||detail.isEmpty()?".":": "+detail));
+   }
+  }catch(Exception ignored){note("Pemasangan tidak selesai.");}
  }
  public final class Bridge {
   @JavascriptInterface public void refresh(){publish();}

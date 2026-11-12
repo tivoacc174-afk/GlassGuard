@@ -1,4 +1,4 @@
-# GlassGuard 1.1.0
+# GlassGuard 1.3.4
 
 Aplikasi Android/Google TV setempat, antara muka Bahasa Melayu liquid glass. Pakej: `com.glassguard`. Minimum manifest Android 6 (API 23), memerlukan Android System WebView moden (Chromium 86+); binaan ini diuji pada Google TV Android 14 sahaja. Sasaran API 35.
 
@@ -29,6 +29,17 @@ Tiada muat turun automatik, tiada pemasangan senyap. Aliran penuh apabila butang
 Kebenaran tambahan: `INTERNET` (hanya untuk semakan/muat turun kemas kini) dan `REQUEST_INSTALL_PACKAGES`. WebView kekal `setBlockNetworkLoads(true)`; semua trafik kemas kini menggunakan `HttpURLConnection` dalam kod native, bukan halaman.
 
 Penting: kunci tandatangan dalam `signing/` mesti kekal sama untuk setiap keluaran. Jika kunci hilang atau bertukar, Android akan menolak kemas kini (tandatangan tidak sepadan) dan pengguna perlu memasang semula secara manual.
+
+Tambahan: `PendingIntent` hasil pemasangan mesti `FLAG_MUTABLE` pada Android 12+. `PackageInstaller` menulis `EXTRA_STATUS` ke dalam Intent hasil, dan `FLAG_IMMUTABLE` menyebabkan setiap pemasangan dilaporkan gagal tanpa mesej.
+
+## Terbitkan versi baharu
+
+1. Naikkan `android:versionCode` dan `android:versionName` dalam `app/src/main/AndroidManifest.xml` mengikut skema `major*10000+minor*100+patch`. Ujian kontrak menolak ketidakpadanan.
+2. `python build.py` — semua ujian mesti lulus.
+3. `gh release create vX.Y.Z dist/GlassGuard-X.Y.Z.apk --title "GlassGuard X.Y.Z" --notes "..."`
+4. Pastikan aset mempunyai `digest: sha256:...`. GitHub mengira ini secara automatik untuk fail yang dimuat naik melalui `gh release create`; jika tiada, aplikasi enggan memasang.
+
+Peranti mengesahkan aliran ini: 1.2.0 → 1.3.3 dinaik taraf sepenuhnya melalui butang dalam aplikasi, dan pembatalan pada dialog Android meninggalkan versi serta status UI yang betul. Butiran dalam `dist/VERIFICATION.txt`.
 
 ## Batas keselamatan
 

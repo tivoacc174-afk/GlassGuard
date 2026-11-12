@@ -16,6 +16,10 @@ public final class UpdatePolicyTest {
    ok(asset("https://github.com/example/GlassGuard/releases/download/v1.1.0/GlassGuard-1.1.0.apk"),"own release asset allowed");
    for(String u:new String[]{"http://github.com/example/GlassGuard/releases/download/v1/app.apk","https://github.com/attacker/GlassGuard/releases/download/v1/app.apk","https://github.com.evil.test/example/GlassGuard/releases/download/v1/app.apk","https://evil@github.com/example/GlassGuard/releases/download/v1/app.apk","https://github.com:8443/example/GlassGuard/releases/download/v1/app.apk","https://github.com/example/GlassGuard/releases/download/v1/../app.apk","https://github.com/example/GlassGuard/releases/download/v1/%2fapp.apk","https://github.com/example/GlassGuard/releases/download/v1/app.apk?token=secret"})ok(!asset(u),"untrusted asset rejected: "+u);
    ok((Boolean)call("isTransportUrl",new Class[]{String.class},"https://release-assets.githubusercontent.com/github-production-release-asset/123/file"),"GitHub CDN redirect allowed");
+   ok((Boolean)call("isTransportUrl",new Class[]{String.class},"https://release-assets.githubusercontent.com/github-production-release-asset/123/file?sp=r&sig=xidWJ%2BCo9WXb%2BOuW797AsHZYgK9171FtTRbEqHyQM5c%3D&response-content-disposition=attachment%3B%20filename%3Dapp.apk"),"signed CDN query with percent-encoding allowed");
+   ok(!(Boolean)call("isTransportUrl",new Class[]{String.class},"https://release-assets.githubusercontent.com/../secret?x=1"),"CDN dot-segment rejected");
+   ok(!(Boolean)call("isTransportUrl",new Class[]{String.class},"https://release-assets.githubusercontent.com/%2e%2e/secret"),"encoded dot-segment rejected");
+   ok(!(Boolean)call("isTransportUrl",new Class[]{String.class},"https://release-assets.githubusercontent.com/file#frag"),"CDN fragment rejected");
    ok(!(Boolean)call("isTransportUrl",new Class[]{String.class},"https://release-assets.githubusercontent.com.evil.test/file"),"untrusted CDN rejected");
    ok(!(Boolean)call("isTransportUrl",new Class[]{String.class},"file:///sdcard/malicious.apk"),"file transport rejected");
   }

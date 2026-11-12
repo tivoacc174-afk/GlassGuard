@@ -50,14 +50,31 @@ public final class UpdatePolicy {
 
  /** GitHub redirects release downloads to this CDN host; nothing else may be fetched. */
  public static boolean isTransportUrl(String url){
-  if(url==null||url.indexOf('%')>=0||url.indexOf('\\')>=0)return false;
+  if(url==null||url.indexOf('\\')>=0)return false;
   URI uri;
   try{uri=new URI(url);}catch(Exception e){return false;}
   if(!uri.isAbsolute()||!"https".equalsIgnoreCase(uri.getScheme()))return false;
   if(!CDN.equalsIgnoreCase(uri.getHost()))return false;
-  if(uri.getRawUserInfo()!=null||uri.getPort()!=-1)return false;
+  if(uri.getRawUserInfo()!=null||uri.getPort()!=-1||uri.getRawFragment()!=null)return false;
   String path=uri.getPath();
-  return path!=null&&path.length()>1;
+  if(path==null||path.length()<2)return false;
+  // The path must be literal: signed release assets only ever vary in the query.
+  if(uri.getRawPath()!=null&&uri.getRawPath().indexOf('%')>=0)return false;
+  for(String segment:path.split("/",-1))if(".".equals(segment)||"..".equals(segment))return false;
+  String query=uri.getRawQuery();
+  if(query!=null){
+   // Percent escapes are required by the signed query; malformed escapes are rejected, not repaired.
+   for(int i=0;i<query.length();i++){
+    if(query.charAt(i)!='%')continue;
+    if(i+2>=query.length())return false;
+    if(!isHex(query.charAt(i+1))||!isHex(query.charAt(i+2)))return false;
+   }
+  }
+  return true;
+ }
+
+ private static boolean isHex(char c){
+  return (c>='0'&&c<='9')||(c>='a'&&c<='f')||(c>='A'&&c<='F');
  }
 
  /** The downloaded package must be this app, at the announced version, signed by the same key. */

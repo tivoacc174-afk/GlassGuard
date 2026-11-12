@@ -116,8 +116,11 @@ if (fs.existsSync(asset)) {
     assert.match(text(ui.id('update-status')), /Tiada semakan/);
     ui.window.renderState({ update: { status: 'available', latest: '1.2.0', versionCode: 10200, size: 4194304 } });
     assert.match(text(ui.id('update-status')), /1\.2\.0/);
+    assert.match(text(ui.id('update-status')), /4([.,]0)? MB/, 'megabyte sizes are shown in MB');
     assert.equal(ui.id('install-button').hidden, false);
     assert.equal(installs, 0, 'rendering state must not start a download');
+    ui.window.renderState({ update: { status: 'available', latest: '1.2.0', size: 49886 } });
+    assert.match(text(ui.id('update-status')), /49 KB/, 'a small APK must not read as 0 MB');
     ui.id('install-button').click();
     assert.equal(installs, 1);
     ui.window.renderState({ update: { status: 'current', latest: '1.2.0' } });

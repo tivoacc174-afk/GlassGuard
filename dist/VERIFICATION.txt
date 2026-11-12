@@ -1,34 +1,53 @@
-GlassGuard 1.0.0 — device verification
+GlassGuard 1.3.3 — device verification
 
 Target: 192.168.0.99:5555
 Device: SkyworthDigital UHD Google TV STB, Android 14 / API 34.
-Installed package: com.glassguard. adb install returned Success; pm path read back package location; am start -W returned Status: ok.
+Installed package: com.glassguard.
 
-Automated checks:
+Automated checks (all run by build.py before packaging; the build aborts on failure):
 - JVM scanner harness: PASS, 12 assertions.
-- Node UI suite: PASS, 10 tests.
-- Native/manifest static contract: PASS, 2 tests (static checks, not Android instrumentation).
+- Updater policy harness: PASS, 82 assertions across 4 stages (version, urls, identity, tag).
+- Node UI suite: PASS, 12 tests.
+- Native/manifest static contract: PASS, 4 tests (static checks, not Android instrumentation).
 - APK signing: verified v1, v2, v3.
 
-Real-device checks:
-- Local WebView loaded, native bridge delivered real model/RAM and inventory.
-- D-pad moved focus to controls and scrolled into view.
-- RAM control opened Android 14 limitation dialog; its positive action opened the system AppsActivity.
-- Scan reached 142 / 142 packages evaluated. One APK (Google WebView) reported partial inspection; this is retained in report limitations.
-- One finding: com.oemservice, XCPE package indicator, high. Actual package file /system/priv-app/app_xcpe_preset/app_xcpe_preset.apk, UID 1000.
-- Actual APK SHA-256: 7316469fd5b9fa633d9474a14b72716b9ceb4bbf656725ab79409da608eda2be.
-- That hash does not match the 78 bundled published hashes. Finding is NOT a confirmed hash match.
-- Evidence expansion displayed the actual package, path, UID and SHA-256.
-- Report persisted across force-stop/relaunch.
-- JSON share sheet opened with actual complete report. Report text was read back from Android UI into GlassGuard-device-report.json; chooser was cancelled without sharing to another app.
-- Search found a harmless no-code/no-permission test fixture. GlassGuard confirmation and Android uninstall confirmation opened. UI uninstall removed fixture for active user 0; inactive user 10 retained its copy. ADB cleanup then removed only that test fixture for all users; both users read back no fixture.
-- com.oemservice remains enabled; no existing user/system applications were removed or disabled.
-- Captured log windows contained no FATAL EXCEPTION / uncaught Chromium error matches. This is not a guarantee of absence of all defects.
+Self-update verified end to end on the device:
+
+1. Baseline. Installed 1.2.0 (versionCode 10200). "Check for update" read releases/latest and reported "GlassGuard sudah versi terkini (1.2.0)".
+2. Version higher than installed. Published v1.3.0. The same button reported "Versi 1.3.0 tersedia (49 KB)". No download occurred until the install button was pressed.
+3. Refused downgrade. With v1.3.2 as latest and 1.3.3 installed, the app reported "sudah versi terkini (1.3.2)" instead of offering a lower version.
+4. Actual upgrade through the in-app flow. Installed 1.3.2 (versionCode 10302), published v1.3.3, pressed Check for update -> "Versi 1.3.3 tersedia (49 KB)" -> pressed the install button -> the GlassGuard dialog showed the real byte count and "pakej dan tandatangan sepadan" -> the system PackageInstaller asked "Do you want to update this app?" -> Update -> read back versionCode 10303 from the package manager. The upgrade was performed entirely by the app, not by adb install.
+5. Cancellation path. With v1.3.4 available, the download ran, then the PackageInstaller dialog was dismissed with Cancel. Read back: versionCode unchanged at 10303; update status showed "Semakan gagal: INSTALL_FAILED_ABORTED: User rejected permissions"; the check button remained enabled. This confirms the fix for the defect where a failed or cancelled install left the UI stuck in "Menyemak kemas kini".
+
+Defects found and fixed during device testing (each reproduced first, fixed, then re-verified on the device):
+
+- "Hos muat turun ditolak" on every download. GitHub redirects release assets to a signed release-assets.githubusercontent.com URL whose query contains percent-encoded values, and isTransportUrl rejected every '%'. The rule now allows a signed query on the CDN host while still rejecting encoded paths, dot-segments, fragments, userinfo and ports. Four regression assertions added.
+- Silent install failure. The PendingIntent used FLAG_IMMUTABLE, so PackageInstaller could not write EXTRA_STATUS into the result Intent and every install reported FAILURE with no message. Now FLAG_MUTABLE on Android 12+, which the system requires to deliver the outcome.
+- Stuck "checking" state. A failed or cancelled install left the status at "Menyemak kemas kini", permanently disabling the check button. Failure now sets an error state with the real Android message; cancelling the confirm dialog restores the available state.
+- Missing install-unknown-apps permission. installUpdate now checks canRequestPackageInstalls() and opens ACTION_MANAGE_UNKNOWN_APP_SOURCES with an explanation instead of failing later.
+- Cosmetic: a 49 KB APK rendered as "0 MB". Sizes below 1 MiB now show KB.
+
+Security properties exercised, not merely asserted:
+- APK asset URL restricted to https://github.com/tivoacc174-afk/GlassGuard/releases/download/<tag>/<file>.apk
+- Redirects followed manually, max 5 hops, only to release-assets.githubusercontent.com
+- Download capped at 64 MiB, streamed, with a size mismatch check
+- SHA-256 of received bytes compared with the GitHub release asset digest
+- Package name, announced versionCode and signing certificate compared with the installed app before PackageInstaller is invoked
+- No silent install: both a GlassGuard dialog and the Android PackageInstaller confirmation are required
+- WebView remains setBlockNetworkLoads(true); update traffic uses HttpURLConnection in native code only
+
+Backwards-compatible scanner checks (unchanged behaviour, re-confirmed on 1.3.3):
+- Scan reached 142 / 142 packages; one WebView APK reported partial inspection and is retained in report limitations.
+- One finding: com.oemservice, XCPE package indicator, high. APK /system/priv-app/app_xcpe_preset/app_xcpe_preset.apk, UID 1000, SHA-256 7316469fd5b9fa633d9474a14b72716b9ceb4bbf656725ab79409da608eda2be. That hash does not match the 78 bundled published hashes, so this is NOT a confirmed hash match.
+- com.oemservice remains enabled; nothing was removed or disabled.
 
 Artifacts:
-APK: C:\Users\Azam\Projects\GlassGuard\dist\GlassGuard-1.0.0.apk
-APK SHA-256: 1062787c0a0c5160b79c3cdfebdbc5f9054f2f58b876ebb356a7dee7efc5681d
+Repo: https://github.com/tivoacc174-afk/GlassGuard
+Releases: v1.1.0, v1.2.0, v1.3.0, v1.3.1, v1.3.2, v1.3.3, v1.3.4
+Installed on device: 1.3.3 (versionCode 10303)
+APK: C:\Users\Azam\Projects\GlassGuard\dist\GlassGuard-1.3.4.apk
+APK SHA-256: e2d8991b7397f022d66392889cdd45a87298dac39f925d15461103c7defa238c
 Report: C:\Users\Azam\Projects\GlassGuard\dist\GlassGuard-device-report.json
 Screenshots/UI XML/log windows: C:\Users\Azam\Projects\GlassGuard\verification
 
-Limits: Indicator scanner, not comprehensive antivirus. No firmware eradication, no hidden-root guarantee, no network traffic inspection. Ordinary Android app cannot delete /system or kill other apps on Android 14+. Uninstall operates within the current Android user/profile. Firmware remediation requires a separate explicit, verified procedure.
+Limits: Indicator scanner, not comprehensive antivirus. No firmware eradication, no hidden-root guarantee, no network traffic inspection. Uninstall operates within the current Android user/profile. The updater trusts GitHub TLS plus the published asset digest; it does not verify a separate detached signature file. If the local signing key in signing/ is lost or replaced, Android will reject future updates and the app must be reinstalled manually.
