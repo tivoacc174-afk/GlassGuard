@@ -137,6 +137,26 @@ if (fs.existsSync(asset)) {
     assert.match(text(ui.id('update-status')), /Menyemak/);
     assert.equal(ui.id('update-button').disabled, true);
   });
+  test('findings offer only the strongest permitted removal and verify the outcome', () => {
+    const calls = [];
+    const ui = boot(html, { openApp: p => calls.push(['open', p]), uninstall: p => calls.push(['uninstall', p]), apps() {} });
+    ui.window.renderState(fixture());
+    const buttons = controls(ui.id('findings'));
+    // A user app is offered a permanent removal; a system app is offered disable, never uninstall.
+    assert.equal(buttons.filter(x => text(x) === 'Buang kekal').length, 1);
+    assert.equal(buttons.filter(x => text(x) === 'Nyahaktif').length, 1);
+    assert.equal(buttons.filter(x => text(x) === 'Hapus').length, 0, 'the old ambiguous label is gone');
+    // Verification status must be rendered from a verdict, not assumed from the click.
+    ui.window.renderState({ scan: { verdicts: { 'org.test.app': 'removed', 'org.test.system': 'disabled' } } });
+    assert.match(text(ui.id('findings')), /dibuang daripada pengguna ini/i);
+    assert.match(text(ui.id('findings')), /dinyahaktifkan/i);
+    ui.window.renderState({ scan: { verdicts: { 'org.test.app': 'unchanged' } } });
+    assert.match(text(ui.id('findings')), /masih dipasang|tidak berubah/i);
+    assert.doesNotMatch(text(ui.id('findings')), /berjaya dibuang/i, 'an unchanged package is never reported as removed');
+    // Firmware findings get no removal control at all.
+    ui.window.renderState({ scan: { findings: [{ id: 'f', severity: 'medium', title: 'BADBOX — nama library firmware', detail: 'x', packageName: '', system: true }] } });
+    assert.equal(controls(ui.id('findings')).filter(x => /Buang kekal|Nyahaktif/.test(text(x))).length, 0, 'firmware cannot be removed by an app');
+  });
   test('native bridge actions are wired without automatic uninstall', () => {
     const calls = []; const bridge = {};
     for (const name of ['scan', 'refresh', 'apps', 'optimize', 'exportReport', 'openApp', 'uninstall']) bridge[name] = (...args) => calls.push([name, ...args]);
@@ -175,8 +195,8 @@ if (fs.existsSync(asset)) {
     const calls = []; const ui = boot(html, { openApp: p => calls.push(['open', p]), uninstall: p => calls.push(['uninstall', p]), apps() {} });
     ui.window.renderState(fixture()); assert.deepEqual(calls, []);
     const buttons = controls(ui.id('findings'));
-    assert.equal(buttons.filter(x => text(x) === 'Hapus').length, 1);
-    buttons.find(x => text(x) === 'Hapus').click();
+    assert.equal(buttons.filter(x => text(x) === 'Buang kekal').length, 1);
+    buttons.find(x => text(x) === 'Buang kekal').click();
     assert.deepEqual(calls, [['uninstall', 'org.test.app']]);
     buttons.filter(x => text(x) === 'Buka tetapan').at(-1).click();
     assert.deepEqual(calls.at(-1), ['open', 'org.test.system']);
@@ -184,10 +204,10 @@ if (fs.existsSync(asset)) {
   });
   test('app inventory search is local and system apps never get delete buttons', () => {
     const ui = boot(html, { apps() {}, openApp() {}, uninstall() {} }); ui.window.renderState(fixture()); ui.id('apps-toggle').click();
-    assert.equal(controls(ui.id('apps-list')).filter(x => text(x) === 'Hapus').length, 1);
+    assert.equal(controls(ui.id('apps-list')).filter(x => text(x) === 'Buang kekal').length, 1);
     ui.id('app-search').value = 'Sistem'; ui.id('app-search').dispatch('input');
     assert.match(text(ui.id('apps-list')), /Sistem ujian/); assert.doesNotMatch(text(ui.id('apps-list')), /Aplikasi ujian/);
-    assert.equal(controls(ui.id('apps-list')).filter(x => text(x) === 'Hapus').length, 0);
+    assert.equal(controls(ui.id('apps-list')).filter(x => text(x) === 'Buang kekal').length, 0);
     ui.id('app-search').value = 'not-found'; ui.id('app-search').dispatch('input'); assert.match(text(ui.id('apps-list')), /Tiada aplikasi sepadan/);
   });
   test('DPAD arrows move focus but do not steal search field arrows', () => {

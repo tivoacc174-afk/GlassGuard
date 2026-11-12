@@ -1,0 +1,67 @@
+Debloat record — 192.168.0.99 (SkyworthDigital UHD Google TV STB, Android 14)
+
+Tool: debloat.py   Undo everything: python debloat.py --restore
+
+Method: adb shell pm disable-user --user 0 <pkg>
+This disables the package for user 0. It is reversible and does not delete APK
+files or data, so partition contents and firmware are untouched.
+
+Result: 19 packages disabled by this run, 24 disabled in total on the device.
+Verified after a full reboot: boot_completed=1, launcher resolves to
+com.spocky.projengmenu, GMS running, com.oemservice has no process.
+
+The malware finding
+  com.oemservice  (label "xcpe", version 1.2.1, /system/priv-app/app_xcpe_preset)
+    Disabled and confirmed stopped. This is the XCPE package indicator GlassGuard
+    flagged. Disabling stops the app from running but the APK is still present in
+    the system partition and the firmware could re-enable it. It is not removal.
+
+Retail and QA clutter
+  com.sdt.producttest      factory product test
+  com.oem.qa               OEM QA harness
+  com.sdt.demo.control     retail demo control
+
+Media preinstalls
+  com.google.android.youtube.tvmusic
+  com.google.android.apps.mediashell
+  com.amazon.amazonvideo.livingroom  (was already disabled)
+
+Backup and provisioning leftovers
+  com.android.backupconfirm
+  com.android.sharedstoragebackup
+  com.android.wallpaperbackup
+  com.google.android.partnersetup
+  com.google.android.onetimeinitializer
+  com.google.android.tungsten.setupwraith  (was already disabled)
+
+Screensavers and feedback
+  com.google.android.apps.tv.dreamx
+  com.android.dreams.basic
+  com.google.android.feedback
+  com.android.tv.feedbackconsent
+
+Calendar, print, games
+  com.android.providers.calendar
+  com.google.android.syncadapters.calendar
+  com.android.printspooler
+  com.google.android.play.games
+
+Never touched (protected set in debloat.py): the launcher, keyboard, WebView,
+GMS/GSF, Play Store, systemui, tv.settings, permissioncontroller, networkstack,
+Bluetooth, package installers, and every vendor package (com.sdt.*, com.realtek.*,
+com.rtk.*) that carries display, remote-control, front-panel or OTA function.
+
+Verified working after the debloat
+- TV rebooted cleanly and reached the home launcher.
+- GlassGuard 1.4.1 launches and completes a scan of 143 packages.
+- Its finding detail now reads "Status: dinyahaktifkan" for com.oemservice,
+  read back from PackageManager rather than assumed.
+
+Honest limits
+- Disabling is not removal. The APK remains in /system/priv-app and firmware can
+  re-enable it, especially across an OTA update.
+- A factory reset re-enables everything recorded here.
+- Disabling a vendor service that this list protects would risk a box that boots
+  to a black screen; do not add to the candidate list without a working recovery.
+- adb over TCP 5555 is still enabled with USB debugging authorised. Turn debugging
+  off when finished, and never expose port 5555 to the internet.

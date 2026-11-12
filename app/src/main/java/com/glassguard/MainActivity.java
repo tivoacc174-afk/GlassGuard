@@ -145,11 +145,76 @@ public final class MainActivity extends Activity {
  }
  private void openSettings(String pkg){try{ApplicationInfo a=validate(pkg);startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+a.packageName)));}catch(Exception e){note("Tetapan aplikasi tidak tersedia: "+e.getClass().getSimpleName());}}
  private void removeApp(String pkg){
-  try{ApplicationInfo a=validate(pkg);if(isSystem(a)){note("Pakej sistem: gunakan tetapan untuk nyahaktif jika dibenarkan. Firmware mungkin perlu diganti.");openSettings(pkg);return;}
-   new AlertDialog.Builder(this).setTitle("Hapus "+getPackageManager().getApplicationLabel(a)+"?")
-    .setMessage("Android akan meminta pengesahan akhir. Data aplikasi mungkin hilang. Ini tidak membaiki firmware.")
-    .setNegativeButton("Batal",null).setPositiveButton("Teruskan",(d,w)->{try{startActivity(new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+pkg)));}catch(Exception e){note("Uninstall tidak tersedia; gunakan tetapan.");openSettings(pkg);}}).show();
+  try{
+   final ApplicationInfo a=validate(pkg);
+   if(isSystem(a)){
+    note("Pakej sistem tidak boleh dibuang oleh aplikasi biasa. Gunakan Nyahaktif; fail /system kekal.");
+    removeAppDialog(a,true);
+    return;
+   }
+   removeAppDialog(a,false);
   }catch(Exception e){note("Pakej tidak sah/tidak tersedia.");}
+ }
+ private void removeAppDialog(final ApplicationInfo a,final boolean system){
+  String label=getPackageManager().getApplicationLabel(a).toString();
+  String message=system
+   ? "Nyahaktif "+label+"? Pakej ini sebahagian daripada imej sistem. Fail /system dan sebarang backdoor firmware KEKAL. Nyahaktif menghentikan aplikasi berjalan untuk pengguna ini sahaja, dan firmware boleh mengaktifkannya semula."
+   : "Buang kekal "+label+"? Aplikasi ini akan dinyahpasang daripada akaun Android ini, jadi ia benar-benar hilang daripada profil ini. Ini tidak membaiki firmware atau partition sistem.";
+  new AlertDialog.Builder(this)
+   .setTitle((system?"Nyahaktif ":"Buang kekal ")+label+"?")
+   .setMessage(message)
+   .setNegativeButton("Batal",null)
+   .setPositiveButton(system?"Nyahaktif":"Buang kekal",(d,w)->{
+    if(system)disablePackage(a.packageName);
+    else{
+     try{startActivity(new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+a.packageName)));}
+     catch(Exception e){note("Uninstall tidak tersedia; gunakan tetapan.");openSettings(a.packageName);}
+    }
+   }).show();
+ }
+ /** Disables a package for this user only, then reports what actually changed. */
+ private void disablePackage(String pkg){
+  try{
+   final ApplicationInfo a=validate(pkg);
+   final String label=getPackageManager().getApplicationLabel(a).toString();
+   new AlertDialog.Builder(this).setTitle("Nyahaktif "+label+"?")
+    .setMessage("Nyahaktif menghentikan aplikasi ini berjalan untuk pengguna Android ini. Fail /system dan sebarang backdoor firmware KEKAL, dan firmware boleh mengaktifkannya semula. Selepas ini, tetapan Android akan dibuka supaya anda boleh mengesahkan status.")
+    .setNegativeButton("Batal",null)
+    .setPositiveButton("Nyahaktif",(d,w)->{
+     boolean was=isInstalled(pkg);
+     try{getPackageManager().setApplicationEnabledSetting(pkg,PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,PackageManager.DONT_KILL_APP);}
+     catch(Exception ignored){}
+     // Read the state back: the shown verdict comes from the system, never from the attempt.
+     boolean now=isInstalled(pkg);boolean enabled=isEnabled(pkg);
+     String verdict=RemedyPolicy.verdict(was,now,enabled);
+     putVerdicts(pkg,verdict);
+     if("disabled".equals(verdict))note(label+" dinyahaktifkan. Fail sistem dan firmware tidak disentuh.");
+     else if("unchanged".equals(verdict))note("Android tidak membenarkan aplikasi biasa menyahaktif "+label+". Buka tetapan untuk mencuba secara manual.");
+     else note("Status "+label+" selepas tindakan: "+verdict+".");
+     openSettings(pkg);
+    }).show();
+  }catch(Exception e){note("Nyahaktif tidak tersedia untuk pakej ini.");}
+ }
+ private boolean isInstalled(String pkg){
+  try{getPackageManager().getApplicationInfo(pkg,PackageManager.MATCH_DISABLED_COMPONENTS);return true;}
+  catch(Exception e){return false;}
+ }
+ private boolean isEnabled(String pkg){
+  try{return getPackageManager().getApplicationInfo(pkg,PackageManager.MATCH_DISABLED_COMPONENTS).enabled;}
+  catch(Exception e){return false;}
+ }
+ /** Merges one package verdict into the scan report so the UI can show verified outcomes. */
+ private void putVerdicts(String pkg,String verdict){
+  try{
+   JSONObject scan=new JSONObject(scanJson);
+   JSONObject verdicts=scan.optJSONObject("verdicts");
+   if(verdicts==null)verdicts=new JSONObject();
+   verdicts.put(pkg,verdict);
+   scan.put("verdicts",verdicts);
+   scanJson=scan.toString();
+   try(FileOutputStream out=openFileOutput("last-scan.json",MODE_PRIVATE)){out.write(scanJson.getBytes("UTF-8"));}
+   publish();
+  }catch(Exception ignored){}
  }
  private void memoryTools(){
   String info="Android mengurus RAM cache secara automatik. RAM kosong bukan sasaran. Tiada jaminan 1 GB dapat dibebaskan. Menutup aplikasi boleh menghentikan notifikasi sehingga dibuka semula.";
@@ -301,6 +366,7 @@ public final class MainActivity extends Activity {
   @JavascriptInterface public void installUpdate(){runOnUiThread(MainActivity.this::installUpdate);}
   @JavascriptInterface public void openApp(String p){runOnUiThread(()->openSettings(p));}
   @JavascriptInterface public void uninstall(String p){runOnUiThread(()->removeApp(p));}
+  @JavascriptInterface public void disablePackage(String p){runOnUiThread(()->MainActivity.this.disablePackage(p));}
   @JavascriptInterface public void optimize(){runOnUiThread(()->memoryTools());}
   @JavascriptInterface public void exportReport(){runOnUiThread(()->{
    try{JSONObject report=new JSONObject(scanJson);report.put("device",Build.MANUFACTURER+" "+Build.MODEL);report.put("source",XCPE);

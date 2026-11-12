@@ -5,7 +5,7 @@ class NativeContract(unittest.TestCase):
   p=ROOT/'app/src/main/java/com/glassguard/MainActivity.java'
   self.assertTrue(p.exists(),'Native Android dashboard is not implemented')
   s=p.read_text(encoding='utf-8')
-  for method in ['scan','refresh','openApp','uninstall','optimize','exportReport','apps','checkForUpdate','installUpdate']:
+  for method in ['scan','refresh','openApp','uninstall','optimize','exportReport','apps','checkForUpdate','installUpdate','disablePackage']:
    self.assertRegex(s,r'@JavascriptInterface\s+public void '+method+r'\(')
   self.assertIn('ScannerEngine.inspectApk',s)
   self.assertIn('splitSourceDirs',s)
@@ -51,6 +51,22 @@ class NativeContract(unittest.TestCase):
   self.assertIn('ACTION_MANAGE_UNKNOWN_APP_SOURCES',s)
   # Cancelling the confirm dialog returns to the available state rather than checking.
   self.assertRegex(s,r'\.setNegativeButton\("Batal",\(d,w\)->\{\s*\n\s*apk\.delete\(\);\s*\n\s*try\{setUpdating\("available"')
+ def test_remediation_is_honest_about_system_limits(self):
+  s=(ROOT/'app/src/main/java/com/glassguard/MainActivity.java').read_text(encoding='utf-8')
+  # A system package must never be offered a plain uninstall; only disable is permitted.
+  self.assertIn('COMPONENT_ENABLED_STATE_DISABLED_USER',s)
+  self.assertIn('RemedyPolicy.verdict',s)
+  # The verdict is read back from the package manager, not assumed from the call.
+  self.assertIn('isEnabled(pkg)',s)
+  self.assertIn('putVerdicts',s)
+  # Firmware and system findings must disclaim what was not fixed.
+  self.assertIn('Fail /system dan sebarang backdoor firmware KEKAL',s)
+  rp=(ROOT/'app/src/main/java/com/glassguard/RemedyPolicy.java').read_text(encoding='utf-8')
+  self.assertIn('return system?DISABLE:UNINSTALL',rp)
+  # Bridge is an inner class: a bare call to a same-named Activity method recurses into itself
+  # and dies with StackOverflowError at runtime. It must be qualified.
+  self.assertIn('MainActivity.this.disablePackage(p)',s)
+  self.assertNotRegex(s,r'public void disablePackage\(String p\)\{runOnUiThread\(\(\)->disablePackage\(')
  def test_manifest_permissions_are_limited_and_declared(self):
   p=ROOT/'app/src/main/AndroidManifest.xml'
   self.assertTrue(p.exists(),'Android manifest is missing')

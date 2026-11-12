@@ -11,3 +11,5 @@ dist/*.apk
 dist/GlassGuard-device-report.json
 verification/
 cache-1.1.0.apk
+debloat-state.json
+build/pkg-*.txt
